@@ -19,19 +19,16 @@ http://wiki.ros.org/ROS/Tutorials
 
 ## 1.1. Install stereo_dso
 
-Install the stereo_dso as the instruction of the following link:
-
-https://github.com/HorizonAD/stereo_dso
+1) Install the stereo_dso as the instruction of the following link:
+https://github.com/HorizonAD/stereo_dso  
+  
+2) Run  `export STEREO_DSO_PATH=[PATH_TO_STEREO_DSO]/stereo_dso`
 
 ## 1.2. Install stereo_dso_ros
-
 ```
 cd ~/catkin_ws/src
-
-git clone https://github.com/LinHuican/stereo_dso_ros
-
+git clone https://github.com/Gentser/stereo_dso_ros
 cd ..
-
 catkin_make
 ```
 
