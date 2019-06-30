@@ -35,12 +35,20 @@ catkin_make
 # 2 Examples
 
 ### KITTI dataset
-Dowload KITTI rosbag sequences:http://cifasis-conicet.gov.ar/taihu/datasets/KITTI/bags/
+1) Dowload KITTI rosbag sequences:http://cifasis-conicet.gov.ar/taihu/datasets/KITTI/bags/ [THIS LINK IS BROKEN!]
 
+2) From the directory `catkin_ws` run command: `source devel/setup.bash`
+3) Launch stereo_dso_ros node:  
 ```
-rosrun stereo_dso_ros stero_dso_ros calib=/home/huicanlin/catkin_ws/src/stereo_dso_ros/examples/camera_kitti.txt preset=0 mode=1 /cam0/image_raw:=/kitti_stereo/left/image_rect /cam1/image_raw:=kitti_stereo/right/image_rect
+rosrun stereo_dso_ros stero_dso_ros \
+calib=[PATH_TO_STEREO_DSO_ROS]/stereo_dso_ros/examples/camera_kitti.txt \
+preset=0 \
+mode=1 \
+/cam0/image_raw:=/kitti_stereo/left/image_rect \
+/cam1/image_raw:=kitti_stereo/right/image_rect
 ```
 
+4) Run .bag file
 ```
 rosbag play --pause ~/Downloads/Dataset/KITTI/kitti_00.bag
 ```
