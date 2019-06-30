@@ -17,7 +17,10 @@ find_package(Pangolin 0.2 REQUIRED)
 message("\n\n---- FOUND Pangolin Headers at\n\"${Pangolin_INCLUDE_DIRS}\"")
 message("---- FOUND Pangolin Libs at\n\"${Pangolin_LIBRARIES}\"")
 
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_module)
+find_package(OpenCV REQUIRED)
+message("\n\n---- FOUND OpenCV Headers at\n\"${OpenCV_INCLUDE_DIRS}\"")
+message("---- FOUND OpenCV Libs at\n\"${OpenCV_LIBS}\"")
+
 find_package(Eigen3 REQUIRED)
 find_package(Boost COMPONENTS system thread)
 find_library(STEREO_DSO_LIBRARY dso ${STEREO_DSO_PATH}/build/lib)
