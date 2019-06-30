@@ -43,6 +43,7 @@
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include "cv_bridge/cv_bridge.h"
 
 #include <message_filters/subscriber.h>
@@ -310,6 +311,54 @@ void callback(const sensor_msgs::ImageConstPtr& img, const sensor_msgs::ImageCon
     //delete undistImg_right;
 }
 
+class PosePublisher : public dso::IOWrap::Output3DWrapper {
+public:
+  PosePublisher(ros::NodeHandle& nh)
+    : pose_pub(nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("stereo_dso_pose", 10)), frame_number(0)
+  {
+    pose_cov = std::pow(0.02, 2)/std::sqrt(3);
+    orient_cov = std::pow(0.01, 2);
+  }
+
+  // frame->camToWorld - Mat 3x4, матрица преобразования в систему мировых координат
+  void publishCamPose(FrameShell* frame, CalibHessian* HCalib) override {
+    Eigen::Quaterniond quat(frame->camToWorld.rotationMatrix());
+    Eigen::Vector3d trans = frame->camToWorld.translation();
+
+    geometry_msgs::PoseWithCovarianceStamped pose_msg;
+    pose_msg.header.stamp = ros::Time::now();    // ros::Time(frame->timestamp)
+    pose_msg.header.frame_id = "odom";
+    pose_msg.header.seq = ++frame_number;
+
+    // Position    
+    pose_msg.pose.pose.position.x = trans.x();
+    pose_msg.pose.pose.position.y = trans.y();
+    pose_msg.pose.pose.position.z = trans.z();
+    pose_msg.pose.pose.orientation.w = quat.w();
+    pose_msg.pose.pose.orientation.x = quat.x();
+    pose_msg.pose.pose.orientation.y = quat.y();
+    pose_msg.pose.pose.orientation.z = quat.z();
+
+    // IDEA: more accurate covariance estimate 
+    // Covariance
+    pose_msg.pose.covariance = boost::array<double, 36>({
+        pose_cov, 0.,       0.,       0.,         0.,         0.,
+        0.,       pose_cov, 0.,       0.,         0.,         0.,
+        0.,       0.,       pose_cov, 0.,         0.,         0.,
+        0.,       0.,       0.,       orient_cov, 0.,         0.,
+        0.,       0.,       0.,       0.,         orient_cov, 0.,
+        0.,       0.,       0.,       0.,         0.,         orient_cov
+    });
+
+    pose_pub.publish(pose_msg);
+  }
+
+private:
+  ros::Publisher pose_pub;
+  int frame_number;
+  float pose_cov, orient_cov;
+};
+
 int main( int argc, char** argv )
 {
     ros::init(argc, argv, "stereo_dso_ros");
@@ -355,8 +404,8 @@ int main( int argc, char** argv )
                  (int)undistorter->getSize()[1]));
 
 
-    if(useSampleOutput)
-        fullSystem->outputWrapper.push_back(new IOWrap::SampleOutputWrapper());
+    // if(useSampleOutput)
+    //     fullSystem->outputWrapper.push_back(new IOWrap::SampleOutputWrapper());
 
 
     if(undistorter->photometricUndist != 0)
@@ -368,9 +417,12 @@ int main( int argc, char** argv )
     message_filters::Subscriber<sensor_msgs::Image> left_sub(nh, "/cam0/image_raw", 1);  // "/camera/left/image_raw"
     message_filters::Subscriber<sensor_msgs::Image> right_sub(nh, "/cam1/image_raw", 1); // "/camera/right/image_raw"
     typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> sync_pol;
-    message_filters::Synchronizer<sync_pol> sync(sync_pol(10), left_sub,right_sub);
+    message_filters::Synchronizer<sync_pol> sync(sync_pol(10), left_sub, right_sub);
     sync.registerCallback(boost::bind(&callback, _1, _2));
     /**********************************************************************/
+
+    // Add pose publishing
+    fullSystem->outputWrapper.push_back(new PosePublisher(nh));
 
     ros::spin();
 
@@ -380,7 +432,7 @@ int main( int argc, char** argv )
         delete ow;
     }
 
-    fullSystem->printResult("/home/huicanlin/catkin_ws/src/stereo_dso_ros/examples/result.txt");
+    fullSystem->printResult("~/Desktop/result.txt");
     delete undistorter;
     delete fullSystem;
 
