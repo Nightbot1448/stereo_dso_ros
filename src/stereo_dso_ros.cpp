@@ -285,6 +285,20 @@ void callback(const sensor_msgs::ImageConstPtr& img, const sensor_msgs::ImageCon
     assert(cv_ptr_right->image.type() == CV_8U);
     assert(cv_ptr_right->image.channels() == 1);
 
+    // HOTFIX for some NIIAS logs [cause of LeftImg (768, 1024), RightImg(772, 1032)]
+    if (cv_ptr->image.cols != cv_ptr_right->image.cols)
+    {
+        if (cv_ptr->image.cols < cv_ptr_right->image.cols)  // Left img is smaller, than right one
+        {
+//            cv::Mat tmp_right = cv_ptr_right->image(cv::Rect(0,0, cv_ptr->image.cols, cv_ptr->image.rows));
+//            cv_ptr_right->image = tmp_right.clone();
+            cv_ptr_right->image(cv::Rect(0,0, cv_ptr->image.cols, cv_ptr->image.rows)).copyTo(cv_ptr_right->image);
+        } else                                              // Right img is smaller, than left one
+        {
+            cv_ptr->image(cv::Rect(0,0, cv_ptr_right->image.cols, cv_ptr_right->image.rows)).copyTo(cv_ptr->image);
+        }
+    }
+
 
     if(setting_fullResetRequested)
     {
