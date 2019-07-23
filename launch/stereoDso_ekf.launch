@@ -11,7 +11,7 @@
     <remap from="/cam1/image_raw" to="/front_right_view"/>
 
     <node pkg="stereo_dso_ros" type="stereo_dso_ros" name="stereo_dso" 
-          args="calib=$(find stereo_dso_ros)/examples/camera_kitti.txt preset=0 mode=1" 
+          args="calib=$(find stereo_dso_ros)/examples/calibCameraStereoDSO.txt preset=0 mode=1" 
           output="screen" />
 
     <!-- ======== ROBOT_LOCALIZATION PART ======== -->
