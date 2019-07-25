@@ -7,6 +7,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   cv_bridge
   message_filters
+  tf
 )
 
 set(STEREO_DSO_PATH $ENV{STEREO_DSO_PATH})
@@ -32,6 +33,7 @@ catkin_package(
     sensor_msgs
     cv_bridge
     message_filters
+    tf
 )
 
 ###########

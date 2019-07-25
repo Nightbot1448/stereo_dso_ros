@@ -45,6 +45,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include "cv_bridge/cv_bridge.h"
+#include <tf/transform_broadcaster.h>
 
 #include <message_filters/subscriber.h>
 #include <message_filters/time_synchronizer.h>
@@ -328,7 +329,7 @@ void callback(const sensor_msgs::ImageConstPtr& img, const sensor_msgs::ImageCon
 class PosePublisher : public dso::IOWrap::Output3DWrapper {
 public:
   PosePublisher(ros::NodeHandle& nh)
-    : pose_pub(nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("stereo_dso_pose", 10)), frame_number(0)
+    : pose_pub(nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("stereo_dso/pose", 10)), frame_number(0)
   {
     pose_cov = std::pow(0.02, 2)/std::sqrt(3);
     orient_cov = std::pow(0.01, 2);
@@ -363,8 +364,20 @@ public:
         0.,       0.,       0.,       0.,         orient_cov, 0.,
         0.,       0.,       0.,       0.,         0.,         orient_cov
     });
-
     pose_pub.publish(pose_msg);
+
+    // Work with TF
+    tf::Transform transform;
+    transform.setOrigin( tf::Vector3(trans.x(), trans.y(), trans.z()) );
+    tf::Quaternion q;
+    q[0] = quat.x();
+    q[1] = quat.y();
+    q[2] = quat.z();
+    q[3] = quat.w();
+    transform.setRotation(q);
+
+    static tf::TransformBroadcaster tf_br;
+    tf_br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "tf/stereo_dso"));
   }
 
 private:
