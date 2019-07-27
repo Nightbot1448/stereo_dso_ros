@@ -42,6 +42,7 @@
 #include <sensor_msgs/image_encodings.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/CameraInfo.h>
+#include <sensor_msgs/NavSatFix.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include "cv_bridge/cv_bridge.h"
@@ -331,8 +332,13 @@ public:
   PosePublisher(ros::NodeHandle& nh)
     : pose_pub(nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("stereo_dso/pose", 10)), frame_number(0)
   {
-    pose_cov = std::pow(0.02, 2)/std::sqrt(3);
-    orient_cov = std::pow(0.01, 2);
+      // ro = (x^2+y^2+z^2)^(1/2)   suggested whole standart deviation
+      // Suggest, that x=y=z (deviation is equal in all sides)
+      // ro = x*(3)^1/2 --> x = ro/(3)^(1/2)    standart deviation in every side
+      // --> cov = ro^2     (cov = covariance)
+//    pose_cov = std::pow(0.05, 2)/3;
+      pose_cov = std::pow(5, 2)/3;
+      orient_cov = std::pow(0.01, 2);
   }
 
   // frame->camToWorld - Mat 3x4, матрица преобразования в систему мировых координат
@@ -345,14 +351,23 @@ public:
     pose_msg.header.frame_id = "odom";
     pose_msg.header.seq = ++frame_number;
 
-    // Position    
-    pose_msg.pose.pose.position.x = trans.x();
+    // Position   
+    pose_msg.pose.pose.position.x = trans.z();
     pose_msg.pose.pose.position.y = trans.y();
-    pose_msg.pose.pose.position.z = trans.z();
+    pose_msg.pose.pose.position.z = trans.x();
     pose_msg.pose.pose.orientation.w = quat.w();
     pose_msg.pose.pose.orientation.x = quat.x();
     pose_msg.pose.pose.orientation.y = quat.y();
-    pose_msg.pose.pose.orientation.z = quat.z();
+    pose_msg.pose.pose.orientation.z = quat.z(); 
+
+    // // Original data (Previous variant)
+    // pose_msg.pose.pose.position.x = trans.x();
+    // pose_msg.pose.pose.position.y = trans.y();
+    // pose_msg.pose.pose.position.z = trans.z();
+    // pose_msg.pose.pose.orientation.w = quat.w();
+    // pose_msg.pose.pose.orientation.x = quat.x();
+    // pose_msg.pose.pose.orientation.y = quat.y();
+    // pose_msg.pose.pose.orientation.z = quat.z();
 
     // IDEA: more accurate covariance estimate 
     // Covariance
@@ -368,7 +383,9 @@ public:
 
     // Work with TF
     tf::Transform transform;
-    transform.setOrigin( tf::Vector3(trans.x(), trans.y(), trans.z()) );
+    transform.setOrigin( tf::Vector3(trans.z(), trans.y(), trans.x()) );
+    // // Original data
+    // transform.setOrigin( tf::Vector3(trans.x(), trans.y(), trans.z()) );
     tf::Quaternion q;
     q[0] = quat.x();
     q[1] = quat.y();
@@ -385,6 +402,49 @@ private:
   int frame_number;
   float pose_cov, orient_cov;
 };
+
+class NavSatPublisher {
+public:
+    NavSatPublisher(ros::NodeHandle& nh)
+    {
+        // Navigation data (longitude and latitude) --> ROUGH SUGGESTION
+        // -------------------------------------------------------
+        // In case, when longitude or latitude of 2 points are the same, distance between them:
+        // 1 grad ~= 60 sea miles; 1 minute ~= 1 sea mile ~= 1852 metres
+        // 1 grad ~= 111120 m
+        // If suggest, that accuracy ~= 0.05m, than variance:
+        double var = 0.05 / 111120.0;
+        lat_cov = long_cov = alt_cov = std::pow(var, 2)/std::sqrt(3);   // distribute into 3 directions
+
+        navsat_pub = nh.advertise<sensor_msgs::NavSatFix>("navigation_data/with_cov", 10);
+        navsat_sub = nh.subscribe("navigation_data", 10, &NavSatPublisher::navsat_callback, this);
+    }
+
+    void navsat_callback(const sensor_msgs::NavSatFixPtr& nav_msg)
+    {
+        sensor_msgs::NavSatFix navCov_msg;
+
+        navCov_msg.header = nav_msg->header;    // ros::Time(frame->timestamp)
+        navCov_msg.latitude = nav_msg->latitude;
+        navCov_msg.longitude = nav_msg->longitude;
+        navCov_msg.altitude = nav_msg->altitude;
+
+        navCov_msg.position_covariance_type = navCov_msg.COVARIANCE_TYPE_DIAGONAL_KNOWN;
+        navCov_msg.position_covariance = boost::array<double, 9>({
+                                                                    lat_cov, 0.,        0.,
+                                                                    0.,      long_cov,  0.,
+                                                                    0.,      0.,        alt_cov,
+                                                                });
+
+        navsat_pub.publish(navCov_msg);
+    }
+
+private:
+    ros::Publisher navsat_pub;
+    ros::Subscriber navsat_sub;
+    float lat_cov, long_cov, alt_cov;
+};
+
 
 int main( int argc, char** argv )
 {
@@ -450,6 +510,7 @@ int main( int argc, char** argv )
 
     // Add pose publishing
     fullSystem->outputWrapper.push_back(new PosePublisher(nh));
+//    NavSatPublisher navsatPub(nh);
 
     ros::spin();
 
