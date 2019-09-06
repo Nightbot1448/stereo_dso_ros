@@ -47,6 +47,7 @@
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include "cv_bridge/cv_bridge.h"
 #include <tf/transform_broadcaster.h>
+#include <nav_msgs/Odometry.h>
 
 #include <message_filters/subscriber.h>
 #include <message_filters/time_synchronizer.h>
@@ -292,8 +293,8 @@ void callback(const sensor_msgs::ImageConstPtr& img, const sensor_msgs::ImageCon
     {
         if (cv_ptr->image.cols < cv_ptr_right->image.cols)  // Left img is smaller, than right one
         {
-//            cv::Mat tmp_right = cv_ptr_right->image(cv::Rect(0,0, cv_ptr->image.cols, cv_ptr->image.rows));
-//            cv_ptr_right->image = tmp_right.clone();
+           /*cv::Mat tmp_right = cv_ptr_right->image(cv::Rect(0,0, cv_ptr->image.cols, cv_ptr->image.rows));
+           cv_ptr_right->image = tmp_right.clone(); */
             cv_ptr_right->image(cv::Rect(0,0, cv_ptr->image.cols, cv_ptr->image.rows)).copyTo(cv_ptr_right->image);
         } else                                              // Right img is smaller, than left one
         {
@@ -330,13 +331,15 @@ void callback(const sensor_msgs::ImageConstPtr& img, const sensor_msgs::ImageCon
 class PosePublisher : public dso::IOWrap::Output3DWrapper {
 public:
   PosePublisher(ros::NodeHandle& nh)
-    : pose_pub(nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("stereo_dso/pose", 10)), frame_number(0)
+    : pose_pub(nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("stereo_dso/pose", 10)), 
+    odom_pub(nh.advertise<nav_msgs::Odometry>("stereo_dso/odometry", 10)),
+    frame_number(0)
   {
       // ro = (x^2+y^2+z^2)^(1/2)   suggested whole standart deviation
       // Suggest, that x=y=z (deviation is equal in all sides)
       // ro = x*(3)^1/2 --> x = ro/(3)^(1/2)    standart deviation in every side
       // --> cov = ro^2     (cov = covariance)
-//    pose_cov = std::pow(0.05, 2)/3;
+      // pose_cov = std::pow(0.05, 2)/3;
       pose_cov = std::pow(5, 2)/3;
       orient_cov = std::pow(0.01, 2);
   }
@@ -346,6 +349,7 @@ public:
     Eigen::Quaterniond quat(frame->camToWorld.rotationMatrix());
     Eigen::Vector3d trans = frame->camToWorld.translation();
 
+    // Create Pose message
     geometry_msgs::PoseWithCovarianceStamped pose_msg;
     pose_msg.header.stamp = ros::Time::now();    // ros::Time(frame->timestamp)
     pose_msg.header.frame_id = "odom";
@@ -379,7 +383,18 @@ public:
         0.,       0.,       0.,       0.,         orient_cov, 0.,
         0.,       0.,       0.,       0.,         0.,         orient_cov
     });
+    
+    // Create Odometry message
+    nav_msgs::Odometry odom_msg;
+    odom_msg.pose = pose_msg.pose;
+    odom_msg.header.stamp = ros::Time::now();    // ros::Time(frame->timestamp)
+    odom_msg.header.frame_id = "odom";
+    odom_msg.header.seq = ++frame_number;
+    odom_msg.child_frame_id = "base_link";
+
+    // Publish messages
     pose_pub.publish(pose_msg);
+    odom_pub.publish(odom_msg);
 
     // Work with TF
     tf::Transform transform;
@@ -394,11 +409,11 @@ public:
     transform.setRotation(q);
 
     static tf::TransformBroadcaster tf_br;
-    tf_br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "tf/stereo_dso"));
+    tf_br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "odom", "tf/stereo_dso"));
   }
 
 private:
-  ros::Publisher pose_pub;
+  ros::Publisher pose_pub, odom_pub;
   int frame_number;
   float pose_cov, orient_cov;
 };
