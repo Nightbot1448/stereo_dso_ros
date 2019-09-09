@@ -1,6 +1,26 @@
 <launch>
+
+  <remap from="/cam0/image_raw" to="/FLZcmCameraBaslerJpegFrame"/>
+  <remap from="/cam1/image_raw" to="/FRZcmCameraBaslerJpegFrame"/>
+
+
+  <node pkg="rviz" type="rviz" name="rviz" args="$(find stereo_dso_ros)/launch/stereo_dso.rviz"/>
+
+  <node pkg="tf" type="static_transform_publisher" name="map_to_odom_broadcaster" args="0 0 0 0 0 0 1 map odom 100" />
+
+
+  <node pkg="stereo_dso_ros" type="stereo_dso_ros" name="stereo_dso"
+        args="calib=/home/dmo/Documents/niias/calibCameraStereoDSO.txt preset=0 mode=1"
+        output="screen" />
+  <node pkg="imu_complementary_filter" type="complementary_filter_node" name="complementary_filter_node">
+    <param name="use_mag" value="true"/>
+    <param name="publish_tf" value="true"/>
+  </node>
+
+
   <node pkg="robot_localization" type="ekf_localization_node" name="ekf_se" clear_params="true">
-    <rosparam command="load" file="$(find stereo_dso_ros)/params/ekf_odom_niias.yaml" />
+
+    <rosparam command="load" file="$(find stereo_dso_ros)/params/ekf_odom_niias.yaml"/>
 
     <!--  Placeholder for output topic remapping
     <remap from="odometry/filtered" to=""/>

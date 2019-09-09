@@ -24,11 +24,10 @@
 
 
 
-
-#include <locale.h>
-#include <signal.h>
-#include <stdlib.h>
-#include <stdio.h>
+#include <clocale>
+#include <csignal>
+#include <cstdlib>
+#include <cstdio>
 #include <unistd.h>
 
 #include "util/settings.h"
@@ -56,9 +55,9 @@
 #include "util/DatasetReader.h"
 
 
-std::string calib = "";
-std::string vignetteFile = "";
-std::string gammaFile = "";
+std::string calib;
+std::string vignetteFile;
+std::string gammaFile;
 bool useSampleOutput = false;
 bool preload = false;
 int mode = 0;
@@ -357,8 +356,8 @@ public:
 
     // Position   
     pose_msg.pose.pose.position.x = trans.z();
-    pose_msg.pose.pose.position.y = trans.y();
-    pose_msg.pose.pose.position.z = trans.x();
+    pose_msg.pose.pose.position.y = trans.x();
+    pose_msg.pose.pose.position.z = trans.y();
     pose_msg.pose.pose.orientation.w = quat.w();
     pose_msg.pose.pose.orientation.x = quat.x();
     pose_msg.pose.pose.orientation.y = quat.y();
@@ -398,7 +397,7 @@ public:
 
     // Work with TF
     tf::Transform transform;
-    transform.setOrigin( tf::Vector3(trans.z(), trans.y(), trans.x()) );
+    transform.setOrigin( tf::Vector3(trans.z(), trans.x(), trans.y()) );
     // // Original data
     // transform.setOrigin( tf::Vector3(trans.x(), trans.y(), trans.z()) );
     tf::Quaternion q;
@@ -419,6 +418,10 @@ private:
 };
 
 class NavSatPublisher {
+    ros::Publisher navsat_pub;
+    ros::Subscriber navsat_sub;
+    float lat_cov, long_cov, alt_cov;
+
 public:
     NavSatPublisher(ros::NodeHandle& nh)
     {
@@ -429,7 +432,7 @@ public:
         // 1 grad ~= 111120 m
         // If suggest, that accuracy ~= 0.05m, than variance:
         double var = 0.05 / 111120.0;
-        lat_cov = long_cov = alt_cov = std::pow(var, 2)/std::sqrt(3);   // distribute into 3 directions
+        lat_cov = long_cov = alt_cov = float(std::pow(var, 2)/std::sqrt(3));   // distribute into 3 directions
 
         navsat_pub = nh.advertise<sensor_msgs::NavSatFix>("navigation_data/with_cov", 10);
         navsat_sub = nh.subscribe("navigation_data", 10, &NavSatPublisher::navsat_callback, this);
@@ -453,11 +456,6 @@ public:
 
         navsat_pub.publish(navCov_msg);
     }
-
-private:
-    ros::Publisher navsat_pub;
-    ros::Subscriber navsat_sub;
-    float lat_cov, long_cov, alt_cov;
 };
 
 
@@ -510,7 +508,7 @@ int main( int argc, char** argv )
     //     fullSystem->outputWrapper.push_back(new IOWrap::SampleOutputWrapper());
 
 
-    if(undistorter->photometricUndist != 0)
+    if(undistorter->photometricUndist)
         fullSystem->setGammaFunction(undistorter->photometricUndist->getG());
 
     ros::NodeHandle nh;

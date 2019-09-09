@@ -1,0 +1,26 @@
+<launch>
+
+    <remap from="/cam0/image_raw" to="/kitti/camera_color_left/image_raw"/>
+    <remap from="/cam1/image_raw" to="/kitti/camera_color_right/image_raw"/>
+
+
+    <node pkg="rviz" type="rviz" name="rviz" args="$(find stereo_dso_ros)/launch/stereo_dso.rviz"/>
+
+    <node pkg="tf" type="static_transform_publisher" name="map_to_odom_broadcaster" args="0 0 0 0 0 0 1 map odom 5" />
+
+
+    <node pkg="stereo_dso_ros" type="stereo_dso_ros" name="stereo_dso"
+          args="calib=$(find stereo_dso_ros)/examples/camera_kitti.txt preset=0 mode=1"
+          output="screen" />
+
+    <node pkg="robot_localization" type="ekf_localization_node" name="ekf_se" clear_params="true">
+
+        <rosparam command="load" file="$(find stereo_dso_ros)/params/ekf_odom_niias.yaml"/>
+
+        <!--  Placeholder for output topic remapping
+        <remap from="odometry/filtered" to=""/>
+        <remap from="accel/filtered" to=""/>
+        -->
+    </node>
+
+</launch>
